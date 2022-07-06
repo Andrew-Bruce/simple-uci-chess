@@ -7,6 +7,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 
+#include <errno.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -69,12 +71,12 @@ static char* readFileIntoString(const char* filename)
       fclose(f);
       return buf;
     }else{
-      printf("malloc failed\n");
-      assert(false);
+      printf("malloc failed: %s\n", strerror(errno));
+      exit(1);
     }
   }else{
-    printf("failed to open file: \"%s\"\n", filename);
-    assert(false);
+    printf("failed to open file \"%s\": %s\n", filename, strerror(errno));
+    exit(1);
   }
 }
 
@@ -315,7 +317,7 @@ setupOpenGLStuff(void)
   unsigned char *data = stbi_load("pieces.png", &width, &height, &nrChannels, 0);
   printf("w h c = %d, %d, %d\n", width, height, nrChannels);
   if(data == NULL){
-    printf("TEXTURE FAILED TO LOAD\n");
+    printf("chess pieces texture failed to load\n");
     exit(1);
   }
   

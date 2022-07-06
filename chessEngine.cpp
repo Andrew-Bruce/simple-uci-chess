@@ -503,7 +503,7 @@ public:
       close(pipeFdRead[0]);//child close output of read pipe
       close(pipeFdWrite[1]);//child close input of write pipe
       execl(filepath, filepath, NULL);
-      printf("Can't exec %s: %s\n", filepath, strerror(errno));//FUCKING PIECE OF SHIT
+      printf("Can't exec %s: %s\n", filepath, strerror(errno));
       exit(1);
     default://Parent
       close(pipeFdRead[1]);//parent close input of read pipe
