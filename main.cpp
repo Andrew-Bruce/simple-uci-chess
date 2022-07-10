@@ -347,6 +347,7 @@ startGame(void){
   std::thread guiThread (drawGame);
   
   guiThread.join();
+  //drawGame();
   printf("closing gui\n");
   closeGLFW();
 
