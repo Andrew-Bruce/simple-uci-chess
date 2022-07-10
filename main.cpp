@@ -5,7 +5,9 @@
 #include <unistd.h>
 #include <poll.h>
 #include <ctype.h>
-#include <cassert>
+#include <assert.h>
+
+#include <thread>
 
 #include "chessLogic.cpp"
 #include "chessEngine.cpp"
@@ -22,6 +24,9 @@ public:
   int numPlayers = -1;
   bool whiteIsPlayer;
   bool blackIsPlayer;
+
+  bool endGui = false;
+  
   Globals(void){
     currentGame = chessGame();
   }
@@ -57,8 +62,9 @@ handleWinConditions(void){
     usleep(1000000);
     restartGame();
   }
-  if(g.currentGame.currentState.halfMoves > 300){
-    printf("stalemate -- too many moves without pawn advance or capture\n");
+  const int fifty_move_rule_max = 50;
+  if(g.currentGame.currentState.halfMoves > fifty_move_rule_max){
+    printf("stalemate -- %d moves without pawn advance or capture\n", fifty_move_rule_max);
     usleep(1000000);
     restartGame();
   }
@@ -176,12 +182,9 @@ doPlayerInput(void){
 }
 
 void
-startGame(void){
-  openGLDrawStuff();
-  while(!glfwWindowShouldClose(mainWindow)){
+runGame(void){
+  while(true){
     printGame();
-    glfwLoopStuff();
-    
     if(g.currentGame.currentState.isWhitesTurn){
       if(g.whiteIsPlayer){
 	doPlayerInput();
@@ -195,21 +198,46 @@ startGame(void){
 	doEngineMove(&g.engine2);
       }
     }
-    
-    openGLDrawStuff();
     handleWinConditions();
   }
-
-  closeGLFW();
 }
 
-int
-main(int argc, char* argv[])
-{
-  printf("Starting up============================\n");
+void
+drawLoop(void){
+  glfwLoopStuff();
+  openGLDrawStuff();
+}
+
+void
+drawGame(void){//some glfw stuff must be on the same thread or it blows up. idk why but its in the documentation at least, and (i think?) in win32 the polling must be done on the main thread but i don't care about that for now. Some glfw stuff cna be on different threads but just putting it all on on thread hopefully makes that less confusing
   initGLStuff();
   setupOpenGLStuff();
   
+  while(!g.endGui){
+    const float secondsPerFrame = 0.1;
+    usleep((int)(secondsPerFrame*1000000));
+    drawLoop();
+    if(glfwWindowShouldClose(mainWindow)){
+      g.endGui = true;
+    }
+  }
+}
+
+
+void
+startGame(void){
+  std::thread gameThread (runGame);
+  std::thread guiThread (drawGame);
+  
+  guiThread.join();
+  printf("closing gui\n");
+  closeGLFW();
+
+  gameThread.join();
+}
+
+void
+initialInput(void){
   while(true){
     printf("How many players:\n");
     if(scanf ("%d", &g.numPlayers) != 1){
@@ -261,9 +289,18 @@ main(int argc, char* argv[])
   default:
     assert(false);
   }
+}
+
+int
+main(int argc, char* argv[])
+{
+  printf("Starting up============================\n");
   
+  initialInput();
+   
   generateDistanceToEdge();
   nodeTest(3, boardState());
+  
   
   startGame();
   

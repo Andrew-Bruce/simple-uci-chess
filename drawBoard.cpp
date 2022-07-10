@@ -213,6 +213,7 @@ drawThickLine(int ENUM, glm::vec3 start, glm::vec3 end, double thickness){
   glDisableVertexAttribArray(inputPosAttributeLocation);
 }
 
+/*
 static void
 drawLine(int ENUM, glm::vec3 start, glm::vec3 end){
   glUniform1i(objEnumUniformLocation, ENUM);
@@ -234,6 +235,7 @@ drawLine(int ENUM, glm::vec3 start, glm::vec3 end){
   glDrawArrays(GL_LINE_LOOP, offset, 2);
   glDisableVertexAttribArray(inputPosAttributeLocation);
 }
+*/
 
 
 static void
@@ -282,6 +284,43 @@ glfwLoopStuff(void)
 }
 
 void
+loadChessPieceTexture(void)
+{
+  int width, height, nrChannels;
+  unsigned char *data = stbi_load("pieces.png", &width, &height, &nrChannels, 0);
+  printf("w h c = %d, %d, %d\n", width, height, nrChannels);
+  if(data == NULL){
+    printf("chess pieces texture failed to load\n");
+    exit(1);
+  }
+
+  unsigned int textureID;
+  glGenTextures(1, &textureID);
+  glBindTexture(GL_TEXTURE_2D, textureID);
+  /*
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  */
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+  glGenerateMipmap(GL_TEXTURE_2D);
+  
+  //glActiveTexture(GL_TEXTURE0);
+  //glBindTexture(GL_TEXTURE_2D, textureID);
+  //int textureloc = glGetUniformLocation(shaderProgramID, "piecesTexture");
+  //printf("texloc = %d\n", textureloc);
+  
+  //glUniform1i(textureloc, 0);
+  
+  //glActiveTexture(GL_TEXTURE1);
+  //glBindTexture(GL_TEXTURE_2D, texture2);
+  //... for more textures
+  stbi_image_free(data);
+}
+
+
+void
 setupOpenGLStuff(void)
 {
   glGenVertexArrays(1, &vaoThingID);
@@ -302,39 +341,9 @@ setupOpenGLStuff(void)
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
   
   perspectiveMatrix = glm::ortho(0, 1, 0, 1, -100, 100);
+
+  loadChessPieceTexture();
   
-  unsigned int textureID;
-  glGenTextures(1, &textureID);
-  glBindTexture(GL_TEXTURE_2D, textureID);
-  /*
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  */
-  
-  int width, height, nrChannels;
-  unsigned char *data = stbi_load("pieces.png", &width, &height, &nrChannels, 0);
-  printf("w h c = %d, %d, %d\n", width, height, nrChannels);
-  if(data == NULL){
-    printf("chess pieces texture failed to load\n");
-    exit(1);
-  }
-  
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-  glGenerateMipmap(GL_TEXTURE_2D);
-  
-  //glActiveTexture(GL_TEXTURE0);
-  //glBindTexture(GL_TEXTURE_2D, textureID);
-  //int textureloc = glGetUniformLocation(shaderProgramID, "piecesTexture");
-  //printf("texloc = %d\n", textureloc);
-  
-  //glUniform1i(textureloc, 0);
-  
-  //glActiveTexture(GL_TEXTURE1);
-  //glBindTexture(GL_TEXTURE_2D, texture2);
-  
-  stbi_image_free(data);
   printf("openGl ready\n");
 }
 
@@ -380,11 +389,11 @@ pieceToEnum(char piece){
 void
 drawEngineInfo(engine* engineToDraw){
   for(int i = 0; i < engineToDraw->numPvMoves; i++){
-    int y0 = engineToDraw->info_pv[i][0] - 'a';
-    int x0 = engineToDraw->info_pv[i][1] - '1';
-    int y1 = engineToDraw->info_pv[i][2] - 'a';
-    int x1 = engineToDraw->info_pv[i][3] - '1';
-    drawThickLine(-1, glm::vec3(x0*0.125, y0*0.125, 0), glm::vec3(x1*0.125, y1*0.125, 0), 0.02);
+    int x0 = engineToDraw->info_pv[i][0] - 'a';
+    int y0 = engineToDraw->info_pv[i][1] - '1';
+    int x1 = engineToDraw->info_pv[i][2] - 'a';
+    int y1 = engineToDraw->info_pv[i][3] - '1';
+    drawThickLine(-1, glm::vec3((x0+0.5)/8.0, (y0+0.5)/8.0, 0), glm::vec3((x1+0.5)/8.0, (y1+0.5)/8, 0), 0.01);
   }
   
   

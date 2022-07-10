@@ -27,24 +27,22 @@ main()
 
   if((objEnum >= ENUM_piece_blackQueen)&&(objEnum <= ENUM_piece_whitePawn)){
     float yOffset = 1;
-    if(objEnum < 6){
+    if(objEnum >= 6){
       yOffset = 0.5;
     }
     vec2 texturePos = vec2(((objEnum%6)/6.0), yOffset);
-    outputColor = texture(piecesTexture, texturePos+vec2(fragModelPos.x*(1.0/6.0), fragModelPos.y*-0.5));
-    //outputColor = texture(piecesTexture, vec2(fragModelPos.x, fragModelPos.y));
+    outputColor = texture(piecesTexture, texturePos+vec2(fragModelPos.x*(1.0/6.0), (1-fragModelPos.y)*(1.0/2.0)));//6x2 grid
     return;
   }
-  
-  
+    
   switch (objEnum) {
   case ENUM_chessBoard:
     int x = int(floor(fragModelPos.x*8));
     int y = int(floor(fragModelPos.y*8));
     if((x+y)%2 == 0){
-      outputColor = vec4(1, 0, 0, 1);
+      outputColor = vec4(1, 1, 1, 1);
     }else{
-      outputColor = vec4(0, 1, 0, 1);
+      outputColor = vec4(0, 0, 0, 1);
     }
     break;
   default:
