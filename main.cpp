@@ -26,6 +26,21 @@ public:
   bool blackIsPlayer;
 
   bool endGui = false;
+
+  int windowWidth;
+  int windowHeight;
+
+  bool mouseDown = false;
+  double mouseX = 0;
+  double mouseY = 0;
+
+  int clickedBoardPosX = 0;
+  int clickedBoardPosY = 0;
+
+  int releasedBoardPosX = 0;
+  int releasedBoardPosY = 0;
+
+  bool hasMouseData = false;
   
   Globals(void){
     currentGame = chessGame();
@@ -114,71 +129,98 @@ doEngineMove(engine* usethis){
 }
 
 void
-doPlayerInput(void){
-  printf("enter player command:\n");
-  const int timeoutInfinite = -1;
-  
-  waitForData(fileno(stdin), timeoutInfinite);
+attemptPlayerMove(move playerMove){
+  bool success = g.currentGame.attemptMove(playerMove);
+  if(!success){
+    printf("invalid move\n");
+  }
+}
 
-  char buff[0xff];
-  int numRead = read(fileno(stdin), buff, sizeof(buff)-1);
-  buff[numRead] = '\0';
+void
+doPlayerMove(void){
+  printf("enter player command:\n");
+  const int loopMiliseconds = 100;
   
-  char* cmdString;
+
+  bool hasConsoleInputData = false;
+  while((!hasConsoleInputData)&&(!g.hasMouseData)){
+    hasConsoleInputData = waitForData(fileno(stdin), loopMiliseconds);
+  }
+
+  if(g.hasMouseData){//TODO add promotion thing
+    g.hasMouseData = false;
+
+    int fromX = g.clickedBoardPosX;
+    int fromY = g.clickedBoardPosY;
+
+    int toX = g.releasedBoardPosX;
+    int toY = g.releasedBoardPosY;
+
+    move output(fromX + (fromY*8), toX + (toY*8));
+
+    attemptPlayerMove(output);
+    
+    return;
+  }
   
-  if((cmdString = strstr(buff, "move ")) != NULL){
-    cmdString += sizeof("move ") - 1;
-    char playerMove[5];
+  if(hasConsoleInputData){
+    char buff[0xff];
+    int numRead = read(fileno(stdin), buff, sizeof(buff)-1);
+    buff[numRead] = '\0';
+  
+    char* cmdString;
+  
+    if((cmdString = strstr(buff, "move ")) != NULL){
+      cmdString += sizeof("move ") - 1;
+      char playerMove[5];
     
-    char char1 = cmdString[0];
-    char char2 = cmdString[1];
-    char char3 = cmdString[2];
-    char char4 = cmdString[3];
-    char char5 = cmdString[4];
+      char char1 = cmdString[0];
+      char char2 = cmdString[1];
+      char char3 = cmdString[2];
+      char char4 = cmdString[3];
+      char char5 = cmdString[4];
     
-    char promotion = char5;
-    if(!isalpha(promotion)){
-      promotion = '\0';
-    }
-    playerMove[0] = char1;
-    playerMove[1] = char2;
-    playerMove[2] = char3;
-    playerMove[3] = char4;
-    playerMove[4] = promotion;
-    if(!(isalpha(char1)&&isdigit(char2)&&isalpha(char3)&&isdigit(char4))){
-      printf("move is not in format letter-digit-letter-digit\n");
+      char promotion = char5;
+      if(!isalpha(promotion)){
+	promotion = '\0';
+      }
+      playerMove[0] = char1;
+      playerMove[1] = char2;
+      playerMove[2] = char3;
+      playerMove[3] = char4;
+      playerMove[4] = promotion;
+      if(!(isalpha(char1)&&isdigit(char2)&&isalpha(char3)&&isdigit(char4))){
+	printf("move is not in format letter-digit-letter-digit\n");
+	return;
+      }
+    
+      printf("playermove \"%c%c%c%c%c\"\n", playerMove[0], playerMove[1], playerMove[2], playerMove[3], playerMove[4]);
+      int fromX = playerMove[0]-'a';
+      int fromY = 7 - (playerMove[1]-'1');
+      int toX = playerMove[2]-'a';
+      int toY = 7 - (playerMove[3]-'1');
+	
+      move output(fromX + (fromY*8), toX + (toY*8));
+      if(isalpha(playerMove[4])){
+	output.promotion = playerMove[4];
+      }else{
+	output.promotion = '\0';
+      }
+      attemptPlayerMove(output);
       return;
     }
-    
-    printf("playermove \"%c%c%c%c%c\"\n", playerMove[0], playerMove[1], playerMove[2], playerMove[3], playerMove[4]);
-    int fromX = playerMove[0]-'a';
-    int fromY = 7 - (playerMove[1]-'1');
-    int toX = playerMove[2]-'a';
-    int toY = 7 - (playerMove[3]-'1');
-	
-    move output(fromX + (fromY*8), toX + (toY*8));
-    if(isalpha(playerMove[4])){
-      output.promotion = playerMove[4];
-    }else{
-      output.promotion = '\0';
+    if((cmdString = strstr(buff, "undo")) != NULL){
+      g.currentGame.undo();
+      g.currentGame.undo();
+      return;
     }
-    bool success = g.currentGame.attemptMove(output);
-    if(!success){
-      printf("invalid move\n");
+    if((cmdString = strstr(buff, "redo")) != NULL){
+      g.currentGame.redo();
+      g.currentGame.redo();
+      return;
     }
-    return;
+    printf("no command: \"%s\"\n", buff);
   }
-  if((cmdString = strstr(buff, "undo")) != NULL){
-    g.currentGame.undo();
-    g.currentGame.undo();
-    return;
-  }
-  if((cmdString = strstr(buff, "redo")) != NULL){
-    g.currentGame.redo();
-    g.currentGame.redo();
-    return;
-  }
-  printf("no command: \"%s\"\n", buff);
 }
 
 void
@@ -187,13 +229,13 @@ runGame(void){
     printGame();
     if(g.currentGame.currentState.isWhitesTurn){
       if(g.whiteIsPlayer){
-	doPlayerInput();
+	doPlayerMove();
       }else{
 	doEngineMove(&g.engine1);
       }
     }else{
       if(g.blackIsPlayer){
-	doPlayerInput();
+	doPlayerMove();
       }else{
 	doEngineMove(&g.engine2);
       }
@@ -203,8 +245,8 @@ runGame(void){
 }
 
 void
-drawLoop(void){
-  glfwLoopStuff();
+drawLoop(double input_timeout){
+  glfwLoopStuff(input_timeout);
   openGLDrawStuff();
 }
 
@@ -214,9 +256,8 @@ drawGame(void){//some glfw stuff must be on the same thread or it blows up. idk 
   setupOpenGLStuff();
   
   while(!g.endGui){
-    const float secondsPerFrame = 0.1;
-    usleep((int)(secondsPerFrame*1000000));
-    drawLoop();
+    double input_timeout = 0.1;
+    drawLoop(input_timeout);
     if(glfwWindowShouldClose(mainWindow)){
       g.endGui = true;
     }

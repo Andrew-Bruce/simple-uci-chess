@@ -35,8 +35,7 @@ const int ENUM_piece_blackRook = 2;
 const int ENUM_piece_blackKing = 1;
 const int ENUM_piece_blackQueen = 0;
 
-int windowWidth;
-int windowHeight;
+
 
 static void glfwErrorThing(int error, const char* desc){
   printf("glfw err: %d :\"%s\"\n", error, desc);
@@ -44,16 +43,73 @@ static void glfwErrorThing(int error, const char* desc){
 
 static void glfwKeyPressThing(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-  printf("key pressed\n");
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
     glfwSetWindowShouldClose(window, GLFW_TRUE);
+  }
+}
+
+static void glfwMouseMove(GLFWwindow* window, double xpos, double ypos)
+{
+  g.mouseX = xpos;
+  g.mouseY = ypos;
+}
+
+void screenPosToBoardPos(double screenX, double screenY, int* boardX, int* boardY){
+  int squareSide = 0;
+  if(g.windowWidth > g.windowHeight){
+    double diff = g.windowWidth-g.windowHeight;
+    screenX -= (diff/2.0);
+    squareSide = g.windowHeight;
+  }else{
+    double diff = g.windowHeight-g.windowWidth;
+    screenY -= (diff/2.0);
+    squareSide = g.windowWidth;
+  }
+  screenX /= squareSide;
+  screenY /= squareSide;
+  screenX *= 8;
+  screenY *= 8;
+  
+  *boardX = floor(screenX);
+  *boardY = floor(screenY);
+}
+
+static void glfwMouseClick(GLFWwindow* window, int button, int action, int mods)
+{
+  if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
+    screenPosToBoardPos(g.mouseX, g.mouseY, &g.clickedBoardPosX, &g.clickedBoardPosY);
+    printf("mouse pressed on square %d, %d\n", g.clickedBoardPosX, g.clickedBoardPosY);
+    g.mouseDown = true;
+  }
+  if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE){
+    if(g.mouseDown){
+      screenPosToBoardPos(g.mouseX, g.mouseY, &g.releasedBoardPosX, &g.releasedBoardPosY);
+      printf("mouse released on square %d, %d\n", g.releasedBoardPosX, g.releasedBoardPosY);
+      g.hasMouseData = true;
+    }
+    g.mouseDown = false;
+  }
+}
+
+void
+setOrthoRatioCorrect(void)
+{
+  if(g.windowWidth > g.windowHeight){
+    double ratio = g.windowWidth*(1.0/g.windowHeight);
+    double diff = ratio-1;
+    perspectiveMatrix = glm::ortho(0.0-(diff/2.0), 1.0+(diff/2), 0.0, 1.0, -100.0, 100.0);
+  }else{
+    double ratio = g.windowHeight*(1.0/g.windowWidth);
+    double diff = ratio-1;
+    perspectiveMatrix = glm::ortho(0.0, 1.0, 0.0-(diff/2), 1.0+(diff/2), -100.0, 100.0);
+  }
 }
 
 static void glfwChangeSize(GLFWwindow* window, int width, int height){
-  windowWidth = width;
-  windowHeight = height;
-  
-  glViewport(0, 0, windowWidth, windowHeight);
+  g.windowWidth = width;
+  g.windowHeight = height;
+  glViewport(0, 0, g.windowWidth, g.windowHeight);
+  setOrthoRatioCorrect();
 }
 
 static char* readFileIntoString(const char* filename)
@@ -237,6 +293,14 @@ drawLine(int ENUM, glm::vec3 start, glm::vec3 end){
 }
 */
 
+static void
+setInputCallbacks(void)
+{
+  glfwSetKeyCallback(mainWindow, glfwKeyPressThing);
+  glfwSetFramebufferSizeCallback(mainWindow, glfwChangeSize);
+  glfwSetCursorPosCallback(mainWindow, glfwMouseMove);
+  glfwSetMouseButtonCallback(mainWindow, glfwMouseClick);
+}
 
 static void
 initGLStuff(void)
@@ -252,14 +316,15 @@ initGLStuff(void)
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   mainWindow = glfwCreateWindow(640, 480, "poopwindow", NULL, NULL);
-  glfwGetFramebufferSize(mainWindow, &windowWidth, &windowHeight);
-  glViewport(0, 0, windowWidth, windowHeight);
+  glfwGetFramebufferSize(mainWindow, &g.windowWidth, &g.windowHeight);
+  glViewport(0, 0, g.windowWidth, g.windowHeight);
   if(!mainWindow){
     printf("window failed to init\n");
     assert(false);
   }
-  glfwSetKeyCallback(mainWindow, glfwKeyPressThing);
-  glfwSetFramebufferSizeCallback(mainWindow, glfwChangeSize);
+
+  setInputCallbacks();
+  
   glfwMakeContextCurrent(mainWindow);
   glfwSwapInterval(1);
   if(glewInit() != GLEW_OK){
@@ -277,10 +342,11 @@ closeGLFW(void)
 }
 
 void
-glfwLoopStuff(void)
+glfwLoopStuff(double input_timeout)
 {
   glfwSwapBuffers(mainWindow);
-  glfwPollEvents();
+  glfwWaitEventsTimeout(input_timeout);//so only continues when cursor moves and stuff
+  //glfwPollEvents();//basically timeout 0
 }
 
 void
@@ -319,6 +385,13 @@ loadChessPieceTexture(void)
   stbi_image_free(data);
 }
 
+void
+enableTransparency(void){
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+
 
 void
 setupOpenGLStuff(void)
@@ -339,10 +412,13 @@ setupOpenGLStuff(void)
   objEnumUniformLocation = glGetUniformLocation(shaderProgramID, "objEnum");
   
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-  
-  perspectiveMatrix = glm::ortho(0, 1, 0, 1, -100, 100);
+
+  setOrthoRatioCorrect();
+  //perspectiveMatrix = glm::ortho(0, 1, 0, 1, -100, 100);
 
   loadChessPieceTexture();
+  
+  enableTransparency();
   
   printf("openGl ready\n");
 }
@@ -393,10 +469,8 @@ drawEngineInfo(engine* engineToDraw){
     int y0 = engineToDraw->info_pv[i][1] - '1';
     int x1 = engineToDraw->info_pv[i][2] - 'a';
     int y1 = engineToDraw->info_pv[i][3] - '1';
-    drawThickLine(-1, glm::vec3((x0+0.5)/8.0, (y0+0.5)/8.0, 0), glm::vec3((x1+0.5)/8.0, (y1+0.5)/8, 0), 0.01);
+    drawThickLine(-1, glm::vec3((x0+0.5)/8.0, (y0+0.5)/8.0, 0), glm::vec3((x1+0.5)/8.0, (y1+0.5)/8, 0), 0.002);
   }
-  
-  
 }
 
 void
