@@ -12,6 +12,12 @@
 #include "chessLogic.cpp"
 #include "chessEngine.cpp"
 
+const int ENUM_undoKeyPressed = 0;
+const int ENUM_redoKeyPressed = 1;
+const int ENUM_setMousePromotion_Queen = 2;
+const int ENUM_setMousePromotion_Rook = 3;
+const int ENUM_setMousePromotion_Bishop = 4;
+const int ENUM_setMousePromotion_Knight = 5;
 
 static const char cmd[] = "./stockfish/stockfish";
 
@@ -41,7 +47,12 @@ public:
   int releasedBoardPosY = 0;
 
   bool hasMouseData = false;
-  
+  bool hadKeyboardCommand = false;
+
+  int keyboardCommand;
+
+  char whitePlayerMousePromote = 'q';
+  char blackPlayerMousePromote = 'q';
   Globals(void){
     currentGame = chessGame();
   }
@@ -137,29 +148,90 @@ attemptPlayerMove(move playerMove){
 }
 
 void
+playerUndo(void)
+{
+  g.currentGame.undo();
+  g.currentGame.undo();
+}
+void
+playerRedo(void)
+{
+  g.currentGame.redo();
+  g.currentGame.redo();
+}
+
+void
 doPlayerMove(void){
   printf("enter player command:\n");
   const int loopMiliseconds = 100;
   
 
   bool hasConsoleInputData = false;
-  while((!hasConsoleInputData)&&(!g.hasMouseData)){
+  while((!hasConsoleInputData)&&(!g.hasMouseData)&&(!g.hadKeyboardCommand)){
     hasConsoleInputData = waitForData(fileno(stdin), loopMiliseconds);
   }
 
-  if(g.hasMouseData){//TODO add promotion thing
+  if(g.hadKeyboardCommand){
+    g.hadKeyboardCommand = false;
+    char* promoteToChange = NULL;
+    if(g.currentGame.currentState.isWhitesTurn){
+      promoteToChange = &g.whitePlayerMousePromote;
+    }else{
+      promoteToChange = &g.blackPlayerMousePromote;
+    }
+    switch(g.keyboardCommand){
+    case ENUM_undoKeyPressed:
+      playerUndo();
+      break;
+    case ENUM_redoKeyPressed:
+      playerRedo();
+      break;
+    case ENUM_setMousePromotion_Queen:
+      *promoteToChange = 'q';
+      printf("current player promotion set to queen\n");
+      break;
+    case ENUM_setMousePromotion_Rook:
+      *promoteToChange = 'r';
+      printf("current player promotion set to rook\n");
+      break;
+    case ENUM_setMousePromotion_Bishop:
+      *promoteToChange = 'b';
+      printf("current player promotion set to bishop\n");
+      break;
+    case ENUM_setMousePromotion_Knight:
+      *promoteToChange = 'n';
+      printf("current player promotion set to knigh\n");
+      break;
+    default:
+      printf("UNKNOWN KEYPRESS CHECK CODE\n");
+    }
+  }
+  
+  if(g.hasMouseData){
     g.hasMouseData = false;
 
     int fromX = g.clickedBoardPosX;
     int fromY = g.clickedBoardPosY;
-
     int toX = g.releasedBoardPosX;
     int toY = g.releasedBoardPosY;
-
-    move output(fromX + (fromY*8), toX + (toY*8));
-
-    attemptPlayerMove(output);
     
+    move output(fromX + (fromY*8), toX + (toY*8));
+    if(g.currentGame.currentState.isWhitesTurn){
+      if(toY == 0){
+	if(g.currentGame.currentState.isPawn(fromX+(fromY*8))){
+	  output.promotion = g.whitePlayerMousePromote;
+	}
+      }
+    }
+    if(!g.currentGame.currentState.isWhitesTurn){
+      if(toY == 7){
+	if(g.currentGame.currentState.isPawn(fromX+(fromY*8))){
+	  output.promotion = g.blackPlayerMousePromote;
+	}
+      }
+    }
+    
+    attemptPlayerMove(output);
     return;
   }
   
@@ -210,13 +282,11 @@ doPlayerMove(void){
       return;
     }
     if((cmdString = strstr(buff, "undo")) != NULL){
-      g.currentGame.undo();
-      g.currentGame.undo();
+      playerUndo();
       return;
     }
     if((cmdString = strstr(buff, "redo")) != NULL){
-      g.currentGame.redo();
-      g.currentGame.redo();
+      playerRedo();
       return;
     }
     printf("no command: \"%s\"\n", buff);
@@ -224,22 +294,28 @@ doPlayerMove(void){
 }
 
 void
+doMove(void)
+{
+  if(g.currentGame.currentState.isWhitesTurn){
+    if(g.whiteIsPlayer){
+      doPlayerMove();
+    }else{
+      doEngineMove(&g.engine1);
+    }
+  }else{
+    if(g.blackIsPlayer){
+      doPlayerMove();
+    }else{
+      doEngineMove(&g.engine2);
+    }
+  }
+}
+
+void
 runGame(void){
   while(true){
     printGame();
-    if(g.currentGame.currentState.isWhitesTurn){
-      if(g.whiteIsPlayer){
-	doPlayerMove();
-      }else{
-	doEngineMove(&g.engine1);
-      }
-    }else{
-      if(g.blackIsPlayer){
-	doPlayerMove();
-      }else{
-	doEngineMove(&g.engine2);
-      }
-    }
+    doMove();
     handleWinConditions();
   }
 }

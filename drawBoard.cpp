@@ -43,8 +43,38 @@ static void glfwErrorThing(int error, const char* desc){
 
 static void glfwKeyPressThing(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
-    glfwSetWindowShouldClose(window, GLFW_TRUE);
+  if(action == GLFW_PRESS){
+    switch(key) {
+    case GLFW_KEY_ESCAPE:
+      glfwSetWindowShouldClose(window, GLFW_TRUE);
+      break;
+    case GLFW_KEY_LEFT_BRACKET:
+      g.hadKeyboardCommand = true;
+      g.keyboardCommand = ENUM_undoKeyPressed;
+      break;
+    case GLFW_KEY_RIGHT_BRACKET:
+      g.hadKeyboardCommand = true;
+      g.keyboardCommand = ENUM_redoKeyPressed;
+      break;
+    case GLFW_KEY_Q:
+      g.hadKeyboardCommand = true;
+      g.keyboardCommand = ENUM_setMousePromotion_Queen;
+      break;
+    case GLFW_KEY_R:
+      g.hadKeyboardCommand = true;
+      g.keyboardCommand = ENUM_setMousePromotion_Rook;
+      break;
+    case GLFW_KEY_B:
+      g.hadKeyboardCommand = true;
+      g.keyboardCommand = ENUM_setMousePromotion_Bishop;
+      break;
+    case GLFW_KEY_N:
+      g.hadKeyboardCommand = true;
+      g.keyboardCommand = ENUM_setMousePromotion_Knight;
+      break;
+    default:
+      break;
+    }
   }
 }
 

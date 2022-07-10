@@ -725,15 +725,27 @@ public:
     char promotion = attemptThisMove.promotion;
     if(promotion != 0){
       if(currentState.isWhitesTurn){
-	assert((toY == 0)&&(currentState.board[fromPos] == WP));
+	if(!((toY == 0)&&(currentState.board[fromPos] == WP))){
+	  printf("attempting to promote when shouldn't\n");
+	  return false;
+	}
       }else{
-	assert((toY == 7)&&(currentState.board[fromPos] == BP));
+	if(!((toY == 7)&&(currentState.board[fromPos] == BP))){
+	  printf("attempting to promote when shouldn't\n");
+	  return false;
+	}
       }
     }else{
       if(currentState.isWhitesTurn){
-	assert(!((toY == 0)&&(currentState.board[fromPos] == WP)));
+	if((toY == 0)&&(currentState.board[fromPos] == WP)){
+	  printf("pawn advance to end has no promotion\n");
+	  return false;
+	}
       }else{
-	assert(!((toY == 7)&&(currentState.board[fromPos] == BP)));
+	if((toY == 7)&&(currentState.board[fromPos] == BP)){
+	  printf("pawn advance to end has no promotion\n");
+	  return false;
+	}
       }
     }
     bool success = false;
